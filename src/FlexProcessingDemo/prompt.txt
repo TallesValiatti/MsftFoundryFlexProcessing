@@ -1,0 +1,230 @@
+You are a senior cloud architect writing for a team of software engineers.
+
+Read the technical document below and produce a detailed report in Markdown with
+exactly the following sections, in this order:
+
+1. Executive summary: two paragraphs, written for engineering managers.
+2. Section-by-section summary: for each of the ten sections of the document, write
+   a heading with the section title followed by five bullet points with the most
+   important ideas.
+3. Cross-cutting themes: describe at least five themes that appear in more than one
+   section, explaining in a short paragraph how the sections relate to each other.
+4. Risks and trade-offs: a table with the columns "Risk", "Where it appears",
+   "Impact" and "Mitigation", with at least eight rows.
+5. Glossary: define at least fifteen technical terms used in the document, one
+   sentence each.
+6. Recommended adoption roadmap: a numbered plan with three phases (first 30 days,
+   first 90 days, first year), with at least five concrete actions per phase.
+7. Review questions: ten questions an architect should ask before approving a
+   design based on this document, each followed by a one-sentence explanation of
+   why the question matters.
+
+The report should be thorough, between 2,000 and 2,500 words. Do not copy
+sentences from the document; rephrase everything in your own words.
+
+---
+
+DOCUMENT: Building Cloud-Native AI Applications on Azure: A Practical Guide
+
+Section 1. From physical servers to cloud platforms
+
+For most of the history of enterprise software, running an application meant
+buying servers, installing them in a data center, and planning capacity years in
+advance. Teams had to estimate peak demand, order hardware with long lead times,
+and accept that most of that capacity would sit idle outside of busy periods.
+Operating systems had to be patched by hand, storage arrays had to be expanded in
+large increments, and a hardware failure could take an application offline until a
+replacement part arrived. Cloud computing changed this model by turning
+infrastructure into a service that can be requested through an API and paid for
+by usage. Instead of owning hardware, organizations rent compute, storage, and
+networking from a provider that operates data centers at global scale. This shift
+moved capital expenses to operating expenses, shortened the time between an idea
+and a running environment from months to minutes, and made it practical for small
+teams to run systems that previously required dedicated infrastructure staff. The
+cloud also introduced a shared responsibility model: the provider secures the
+physical facilities and the underlying platform, while the customer remains
+responsible for identities, data, configuration, and the code they deploy.
+Understanding where that boundary sits is the first step in designing any cloud
+workload, because many security incidents happen in the customer's part of the
+model, such as a storage account left open to the internet or a credential
+committed to a public repository.
+
+Section 2. Service models and the Azure platform
+
+Cloud services are commonly grouped into three models. Infrastructure as a
+Service provides virtual machines, disks, and virtual networks, giving teams the
+most control and the most operational work. Platform as a Service provides managed
+runtimes such as web hosting, managed databases, and messaging services, where the
+provider handles patching, scaling, and high availability for the platform itself.
+Software as a Service delivers complete applications that are consumed directly by
+end users. Microsoft Azure offers services in all three categories, organized into
+regions and availability zones. A region is a geographic area that contains one or
+more data centers, and availability zones are physically separate locations within
+a region with independent power, cooling, and networking. Designing an application
+to use multiple zones protects it from the failure of a single facility, while
+using multiple regions protects it from a regional outage at the cost of
+additional complexity in data replication and traffic routing. Azure resources are
+grouped into resource groups and subscriptions, which act as boundaries for
+access control, billing, and policy. Azure Policy can enforce organizational rules
+such as allowed regions, required tags, or approved resource types, and Azure Role
+Based Access Control assigns permissions to users, groups, and workload identities
+at the narrowest scope that still allows them to do their work.
+
+Section 3. Cloud-native application architecture
+
+A cloud-native application is designed to take advantage of the elasticity and
+managed services of the cloud rather than simply moving an existing server into a
+virtual machine. Such applications are typically split into smaller services that
+can be deployed and scaled independently. Containers package an application with
+its dependencies so that it runs the same way on a developer laptop, in a test
+environment, and in production. Container orchestrators such as Kubernetes
+schedule containers across a cluster of machines, restart them when they fail,
+and scale them according to demand. Serverless computing goes a step further by
+removing the need to manage servers or clusters at all: code runs in response to
+events such as HTTP requests, queue messages, or timers, and the platform scales
+the number of instances automatically, including down to zero when there is no
+traffic. Managed databases provide automatic backups, replication, and scaling,
+freeing teams from routine database administration. Asynchronous messaging with
+queues and event streams decouples producers from consumers, which allows each
+part of the system to absorb bursts of traffic at its own pace. These patterns
+improve scalability and resilience, but they also introduce distributed-systems
+challenges such as partial failures, eventual consistency, network latency
+between services, and the need for idempotent operations that can be safely
+retried without producing duplicate side effects.
+
+Section 4. Generative AI and large language models
+
+Generative AI refers to models that create new content, such as text, code,
+images, or audio, based on patterns learned from large amounts of training data.
+Large language models are a class of generative models that process and produce
+text as sequences of tokens, where a token is a fragment of a word, a whole word,
+or a punctuation mark. A model receives an input, often called a prompt, and
+predicts the most likely continuation one token at a time. Modern reasoning
+models can also spend additional internal tokens working through a problem before
+producing a visible answer, which tends to improve quality on complex tasks at
+the cost of more latency and more billed output tokens. Common enterprise uses
+include summarizing long documents, extracting structured data from unstructured
+text, classifying support tickets, drafting responses for customer service
+agents, translating content, and generating or reviewing source code. Because
+models can produce plausible but incorrect statements, production systems combine
+them with grounding techniques such as retrieval-augmented generation, in which
+relevant documents are retrieved from a search index and included in the prompt
+so that the model answers from trusted sources. Output validation, content
+filtering, and human review remain important for decisions with legal, financial,
+or safety implications.
+
+Section 5. Consuming models through APIs
+
+Most teams consume large language models through managed APIs rather than hosting
+the models themselves. On Azure, models are deployed inside a resource and called
+through REST endpoints or software development kits. A deployment associates a
+specific model and version with a name, a deployment type, and a quota measured
+in tokens per minute and requests per minute. The Responses API accepts an input
+and returns generated output together with metadata, including token usage
+broken down into input tokens, cached input tokens, output tokens, and reasoning
+tokens. Applications should record this usage for every call, because it is the
+basis for cost attribution and capacity planning. Requests can fail for many
+reasons: an invalid parameter produces a client error that will fail again if
+repeated unchanged, an exhausted quota produces a rate-limit response that may
+succeed after a delay, and a temporary service problem produces a server error
+that is usually safe to retry. Robust clients distinguish these cases, retry only
+transient failures, use exponential backoff with random jitter, honor any
+Retry-After header returned by the service, and cap both the number of attempts
+and the total time spent retrying. Timeouts must be chosen deliberately, since a
+long generation can legitimately take minutes while a stuck connection should be
+abandoned.
+
+Section 6. Processing tiers, cost, and latency trade-offs
+
+Not every model request has the same urgency. An assistant answering a user in a
+chat window must respond quickly, while a nightly job that enriches a product
+catalog can wait. Cloud providers increasingly expose this difference through
+processing options. Standard processing offers best-effort online inference at a
+pay-per-token price. Priority processing offers lower and more consistent latency
+at a higher price. Flex processing offers a lower price in exchange for variable
+latency and the possibility that capacity is temporarily unavailable, in which
+case the request is rejected and must be retried or redirected. Batch processing
+accepts a large file of requests and returns results asynchronously within a
+target window, typically at a significant discount. Provisioned throughput
+reserves dedicated capacity for predictable, high-volume workloads. Choosing
+between these options is an architectural decision: the same application often
+uses several of them, routing interactive traffic to Standard or Priority and
+background work to Flex or Batch. Because a rejected Flex request does not move to
+another tier automatically, the application itself must decide whether to wait
+and retry, fall back to a more expensive tier, or report a failure. These
+decisions should be explicit in code, visible in logs, and reflected in cost
+reports.
+
+Section 7. Prompt design and token economics
+
+The cost of a model call is driven mainly by the number of tokens processed.
+Input tokens include the instructions, any retrieved documents, the conversation
+history, and the user's question. Output tokens include the visible answer and,
+for reasoning models, the internal reasoning that precedes it. Output tokens are
+usually priced several times higher than input tokens, so asking for concise
+answers is often the most effective way to reduce cost and latency at the same
+time. Prompt caching can lower the cost of repeated input: when many requests
+share a long identical prefix, such as a fixed system instruction or a reference
+document, the service can reuse previously processed tokens and bill them at a
+reduced cached rate. To benefit from caching, place stable content at the
+beginning of the prompt and variable content at the end. Teams should measure
+token usage with representative inputs before launching a feature, set maximum
+output limits where appropriate, and monitor usage over time, because small
+changes in prompts or retrieved context can significantly change the cost of a
+workload that runs millions of times per month.
+
+Section 8. Security and identity
+
+Security for AI applications builds on the same principles as any cloud
+workload, with a few additional concerns. Credentials such as API keys should
+never be embedded in source code or committed to version control. Managed
+identities allow an application running on Azure to authenticate to other
+services without storing any secret, and role assignments should grant only the
+permissions each component needs. Network controls such as private endpoints can
+keep traffic between services off the public internet. For AI specifically,
+teams must consider prompt injection, in which untrusted content inside a prompt
+attempts to override the application's instructions, and data leakage, in which a
+model reveals information that a user should not see. Mitigations include
+separating trusted instructions from untrusted content, filtering retrieved
+documents according to the requesting user's permissions, validating model
+output before acting on it, limiting the tools and actions a model can invoke,
+and logging interactions for audit while respecting privacy requirements. Content
+safety filters can detect harmful input and output categories, but they are a
+layer of defense rather than a guarantee.
+
+Section 9. Observability and operations
+
+Observability is the ability to understand the internal state of a system from
+the data it produces. Cloud-native applications rely on three main signals:
+logs, which record discrete events; metrics, which record numeric measurements
+over time; and traces, which follow a single request as it travels through
+multiple services. Together they allow developers to detect problems, find their
+cause, and verify fixes. For AI workloads, useful signals include request
+volume, latency percentiles, error rates by status code, token usage by feature
+and by customer, the processing tier that actually served each request, and the
+rate at which requests fall back from a cheaper tier to a more expensive one.
+Dashboards should make these signals visible to both engineers and finance
+stakeholders, and alerts should fire on sustained symptoms such as rising error
+rates or latency beyond a service-level objective, rather than on every isolated
+failure. Production incidents are easier to troubleshoot when every request
+carries a correlation identifier that appears in logs across all services, and
+when deployments are recorded so that changes in behavior can be linked to the
+release that introduced them.
+
+Section 10. Building a responsible adoption strategy
+
+Organizations adopting AI at scale benefit from a deliberate strategy rather than
+a collection of isolated experiments. A good starting point is a small number of
+use cases with clear business value, measurable success criteria, and tolerance
+for occasional errors. Each use case should have an owner, an evaluation dataset
+that represents real inputs, and a process for measuring quality before and after
+every change to prompts, models, or retrieval sources. Platform teams can provide
+shared building blocks such as approved model deployments, standard client
+libraries with retry and logging behavior, cost dashboards, and security
+guardrails, so that product teams do not reinvent them. Governance should define
+which data may be sent to which models, how long interactions are retained, and
+who reviews high-impact outputs. Finally, teams should revisit their choices
+regularly: models improve, prices change, new processing tiers appear, and a
+design that was optimal a year ago may now be too expensive or too slow. Treating
+model selection, processing tier, and prompt design as configurable, measurable
+decisions makes it possible to adapt without rewriting the application.
